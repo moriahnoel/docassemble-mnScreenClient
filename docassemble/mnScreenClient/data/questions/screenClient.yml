@@ -1,0 +1,123 @@
+metadata:
+ title: LAA Eligibility - Screen Client
+ description: screenClient, if yes screen househould, generate memo
+# true/false eligible - screenHousehould.yml, else print client name and decline, date
+#template client_eligible.md
+#link .yml files
+#LAAIndividual object - client
+#DALIST individuals - client_household (.mnLAAIndividual adds assets, monthly, yearly)
+---
+modules:
+ - .mnLAAIndividual
+ - docassemble.base.core
+ - docassemble.base.util
+---
+objects:
+ - client_household: DAList.using(object_type=LAAIndividual)
+---
+question: |
+ We are assessing your eligibility. Please enter your name.
+fields:
+ - First Name: client_household[0].name.first
+ - Last Name: client_household[0].name.last
+continue button field: client_household.there_are_any
+---
+question: |
+ Can you afford a lawyer?
+yesno: wealthy
+comment: |
+ Where wealthy = true, stop rendering - no need to gather interview questions
+---
+question: |
+  Do you live in alberta?
+yesno: Alberta
+---
+question: |
+  Is your matter located in Alberta?
+yesno: jurisdiction
+---
+question: |
+  Do you have a lawyer?
+yesno: lawyer
+---
+question: |
+  Is your lawyer representing you on this matter?
+yesno: rep
+comment: |
+ use elseif to set variable without asking question?
+ Where represented, stop rendering - no need to gather interview questions
+ if: |
+  lawyer == 'true'
+---
+question: |
+  What type of legal matter do you require assistance with?
+field: matter
+default: Criminal
+choices:
+  - Criminal
+  - Family
+  - Appeal
+  - Other
+comment: |
+ Where matter == 'Other' is LAAineligible, else is fine maybe
+---
+code: |
+  if wealthy == True:
+    eligible = 'False'
+  elif Alberta == False:
+      eligible = 'False'
+  elif jurisdiction == False:
+      eligible = 'False'
+  elif lawyer == True:
+    if rep == True:
+      eligible = 'False'
+    else:
+      eligible = 'True'
+  elif matter == 'Other':
+      eligible = 'False'
+  else:
+     eligible = 'True'
+---
+mandatory: true
+question: |
+ Legal Aid Questionairre Complete
+ Download memo
+attachment:
+  - name: Advice Memo
+    filename: Advice_Memo
+    content file: client_eligible.md
+subquestion: |
+ % if wealthy:
+  Better luck next time - You can afford a lawyer
+  <% return STOP_RENDERING %>
+ % endif
+
+ %if not lawyer:
+  You need a lawyer and you don't have one.
+ %elif rep:
+  You are not eligible for legal aid because you have current representation by counsel.
+  <% return STOP_RENDERING %>
+ % endif
+ 
+ % if matter == 'Other':
+  Not sure what your issue is exactly, but you are SOL!
+  Legal Aid is available for a limited scope of issues
+  I.E. Criminal, Family, or appeal from previous legal aid file
+  <% return STOP_RENDERING %>
+ %else:
+  Your matter involves: ${ matter }
+ % endif
+ 
+ % if not Alberta:
+  You might have an issue within our limited scope BUT
+  Alberta Proud - get your own provincially funded legal aid
+  <% return STOP_RENDERING %>
+ % endif
+ 
+ % if not jurisdiction:
+  You might be low income resident of Alberta whose issue falls within our limited scope, BUT we're not traveling outside of Alberta.
+  Alberta Baby!
+ % else:
+  Holy Rusted Metal Batman! You made it. Proceed to screenHousehold.yml for financial eligibility. 
+ % endif
+---
